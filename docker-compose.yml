@@ -1,0 +1,11 @@
+services:
+  aodata-nats-orders:
+    container_name: aodata-nats-orders
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes: 
+      - ./data:/data
+    restart: unless-stopped
+    depends_on:
+      - aodata-db

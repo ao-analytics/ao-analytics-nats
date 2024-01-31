@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "REFRESH MATERIALIZED VIEW market_orders_count_by_updated_at_and_location",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "6cf235f3aee7ebb132f3ac906ba5107b78e1ba038327478c5570ca5e4507a4f4"
+}

@@ -1,0 +1,21 @@
+[package]
+name = "aodata-nats-orders"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1.29.0", features = ["full"] }
+async-nats = "0.33.0"
+futures-util = "0.3.29"
+bytes = "1.5.0"
+serde_json = "1.0.108"
+serde = "1.0.193"
+sqlx = { version = "0.7.2", features = ["postgres", "macros", "runtime-tokio", "time", "chrono"] }
+dotenv = "0.15.0"
+dotenv_codegen = "0.15.0"
+
+[dev-dependencies]
+tokio = { version = "1.25.0", features = ["rt-multi-thread", "time", "sync"] }
+futures = { version = "0.3.28", default-features = false, features = ["std", "async-await"] }

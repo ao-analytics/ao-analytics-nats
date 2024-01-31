@@ -1,0 +1,7 @@
+target/
+.vscode/
+data/
+download.sh
+.gitignore
+docker-compose.yml
+.env
