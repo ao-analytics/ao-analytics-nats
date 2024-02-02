@@ -70,7 +70,7 @@ SELECT * FROM UNNEST(
     $9::TIMESTAMP[],
     $10::TIMESTAMP[],
     $11::TIMESTAMP[])
-ON CONFLICT (id) DO
+ON CONFLICT (id, updated_at) DO
     UPDATE SET
         unit_price_silver = EXCLUDED.unit_price_silver,
         amount = EXCLUDED.amount,
