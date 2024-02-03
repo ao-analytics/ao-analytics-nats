@@ -1,4 +1,4 @@
-use crate::models::{db, nats};
+use aodata_models::{db, nats};
 use sqlx::{postgres::PgQueryResult, types::chrono, PgPool};
 
 pub async fn insert_market_orders(
