@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate dotenv_codegen;
 
+use aodata_models::nats;
+
 use bytes::Bytes;
 use futures_util::stream::StreamExt;
 use sqlx::postgres::PgPoolOptions;
@@ -8,9 +10,6 @@ use sqlx::types::chrono;
 use sqlx::{Pool, Postgres};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-
-mod models;
-use models::nats;
 
 mod utils;
 

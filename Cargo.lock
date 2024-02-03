@@ -64,6 +64,7 @@ dependencies = [
 name = "aodata-nats-orders"
 version = "0.1.0"
 dependencies = [
+ "aodata_models",
  "async-nats",
  "bytes",
  "dotenv",
@@ -74,6 +75,16 @@ dependencies = [
  "serde_json",
  "sqlx",
  "tokio",
+]
+
+[[package]]
+name = "aodata_models"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "serde",
+ "serde_json",
+ "sqlx",
 ]
 
 [[package]]
