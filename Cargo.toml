@@ -1,5 +1,5 @@
 [package]
-name = "aodata-nats-orders"
+name = "ao-analytics-nats"
 version = "0.1.0"
 edition = "2021"
 
@@ -15,7 +15,9 @@ serde = "1.0.193"
 sqlx = { version = "0.7.2", features = ["postgres", "macros", "runtime-tokio", "time", "chrono"] }
 dotenv = "0.15.0"
 dotenv_codegen = "0.15.0"
-aodata_models = { version = "*", path = "../aodata-models" }
+aodata_models = { version = "*", git = "https://github.com/ao-analytics/ao-analytics-models.git"}
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
 
 [dev-dependencies]
 tokio = { version = "1.25.0", features = ["rt-multi-thread", "time", "sync"] }

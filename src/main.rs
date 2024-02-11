@@ -1,22 +1,25 @@
 #[macro_use]
 extern crate dotenv_codegen;
 
+use tokio::sync::RwLock;
+use std::sync::Arc;
+
 use aodata_models::nats;
 
-use bytes::Bytes;
-use futures_util::stream::StreamExt;
+use futures_util::StreamExt;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::types::chrono;
 use sqlx::{Pool, Postgres};
-use std::sync::Arc;
-use tokio::sync::RwLock;
+
+use tracing::{info, warn};
+use tracing_subscriber;
 
 mod utils;
 
-type Mutex = Arc<RwLock<Vec<Bytes>>>;
-
 #[tokio::main]
-async fn main() -> Result<(), async_nats::Error> {
+async fn main() -> Result<(), async_nats::SubscribeError> {
+    tracing_subscriber::fmt::init();
+
     let db_url = dotenv!("DATABASE_URL");
 
     let pool = PgPoolOptions::new()
@@ -25,10 +28,9 @@ async fn main() -> Result<(), async_nats::Error> {
         .await
         .unwrap();
 
-    let mutex: Mutex = Arc::new(RwLock::new(Vec::new()));
-
     let nats_url = dotenv!("NATS_URL");
-    let nats_subject = dotenv!("NATS_SUBJECT");
+    let nats_market_orders_subject = dotenv!("NATS_MARKET_ORDERS_SUBJECT");
+    let nats_market_histories_subject = dotenv!("NATS_MARKET_HISTORIES_SUBJECT");
     let nats_user = dotenv!("NATS_USER").to_string();
     let nats_password = dotenv!("NATS_PASSWORD").to_string();
 
@@ -38,41 +40,84 @@ async fn main() -> Result<(), async_nats::Error> {
         .await
         .unwrap();
 
-    let message_handler = tokio::spawn(handle_messages(mutex.clone(), pool.clone()));
+    info!("Connected to NATS server at {}", nats_url);
 
-    print!(
-        "{} Connected to NATS server at {}...\n",
-        chrono::Local::now(),
-        nats_url
-    );
+    let market_orders_subcriber = client.subscribe(nats_market_orders_subject).await?;
 
-    let mut subscriber = client.subscribe(nats_subject).await.unwrap();
+    info!("Subscribed to subject {}", nats_market_orders_subject);
 
-    print!(
-        "{} Subscribed to subject {}...\n",
-        chrono::Local::now(),
-        nats_subject
-    );
+    let market_histories_subcriber = client.subscribe(nats_market_histories_subject).await?;
 
-    while let Some(msg) = subscriber.next().await {
-        mutex.write().await.push(msg.payload);
+    info!("Subscribed to subject {}", nats_market_histories_subject);
+
+    let market_orders: Arc<RwLock<Vec<nats::MarketOrder>>> = Arc::new(RwLock::new(Vec::new()));
+    let market_histories: Arc<RwLock<Vec<nats::MarketHistories>>> = Arc::new(RwLock::new(Vec::new()));
+
+    let market_order_message_handler = tokio::spawn(handle_market_orders_messages(
+        market_orders.clone(),
+        pool.clone(),
+    ));
+
+    info!("Started market order message handler thread");
+
+    let market_history_message_handler = tokio::spawn(handle_market_histories_messages(
+        market_histories.clone(),
+        pool.clone(),
+    ));
+
+    info!("Started market history message handler thread");
+
+    let mut messages =
+        futures_util::stream::select_all([market_orders_subcriber, market_histories_subcriber]);
+
+    while let Some(msg) = messages.next().await {
+
+        if msg.subject.as_str() == nats_market_orders_subject {
+            let parse_result = serde_json::from_slice::<nats::MarketOrder>(&msg.payload);
+            
+            let market_order = match parse_result {
+                Ok(market_order) => market_order,
+                Err(err) => {
+                    warn!("Failed to parse market order message: {}", err);
+                    continue;
+                }
+            };
+
+            market_orders.write().await.push(market_order);
+            continue;
+        }
+
+        if msg.subject.as_str() == nats_market_histories_subject {
+            let parse_result = serde_json::from_slice::<nats::MarketHistories>(&msg.payload);
+
+            let market_history = match parse_result {
+                Ok(market_history) => market_history,
+                Err(err) => {
+                    warn!("Failed to parse market history message: {}", err);
+                    continue;
+                }
+            };
+
+            market_histories.write().await.push(market_history);
+            continue;
+        }
+
+        warn!("Unknown subject: {}", msg.subject);
     }
 
-    _ = tokio::join!(message_handler);
+    _ = tokio::join!(market_order_message_handler, market_history_message_handler);
 
     pool.close().await;
 
     Ok(())
 }
 
-async fn handle_messages(mutex: Mutex, pool: Pool<Postgres>) -> Result<(), async_nats::Error> {
-    print!(
-        "{} handle_messages: Starting message handler thread...\n",
-        chrono::Local::now()
-    );
-
+async fn handle_market_orders_messages(
+    market_orders: Arc<RwLock<Vec<nats::MarketOrder>>>,
+    pool: Pool<Postgres>,
+) -> Result<(), async_nats::Error> {
     loop {
-        let queue_size = mutex.read().await.len();
+        let queue_size = market_orders.read().await.len();
 
         if queue_size < 1000 {
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
@@ -81,49 +126,62 @@ async fn handle_messages(mutex: Mutex, pool: Pool<Postgres>) -> Result<(), async
 
         let start = chrono::Utc::now();
 
-        let mut queue_lock = mutex.write().await;
-        let queue_slice: Vec<Bytes> = queue_lock.drain(0..queue_size).collect();
+        let mut queue_lock = market_orders.write().await;
+        let messages: Vec<nats::MarketOrder> = queue_lock.drain(0..queue_size).collect();
         drop(queue_lock);
-
-        let mut messages: Vec<nats::MarketOrder> = Vec::new();
-
-        for message in queue_slice {
-            let parse_result = serde_json::from_slice::<nats::MarketOrder>(&message);
-
-            let message = match parse_result {
-                Ok(message) => message,
-                Err(err) => {
-                    print!(
-                        "{} handle_messages: Failed to parse message: {}\n",
-                        chrono::Local::now(),
-                        err
-                    );
-                    continue;
-                }
-            };
-
-            messages.push(message)
-        }
 
         let result = utils::db::insert_market_orders(&pool, messages).await;
 
         let rows_affected = match result {
             Ok(rows_affected) => rows_affected.rows_affected(),
             Err(err) => {
-                print!(
-                    "{} handle_messages: Failed to insert market orders: {}\n",
-                    chrono::Local::now(),
-                    err
-                );
+                warn!("Failed to insert market orders: {}", err);
                 continue;
             }
         };
 
         let end = chrono::Utc::now();
 
-        print!(
-            "{} handle_messages: Inserted {} market orders in {} ms...\n",
-            chrono::Local::now(),
+        info!(
+            "Inserted {} market orders in {} ms",
+            rows_affected,
+            end.signed_duration_since(start).num_milliseconds()
+        );
+    }
+}
+
+async fn handle_market_histories_messages(
+    market_histories: Arc<RwLock<Vec<nats::MarketHistories>>>,
+    pool: Pool<Postgres>,
+) -> Result<(), async_nats::Error> {
+    loop {
+        let queue_size = market_histories.read().await.len();
+
+        if queue_size < 1000 {
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            continue;
+        }
+
+        let start = chrono::Utc::now();
+
+        let mut queue_lock = market_histories.write().await;
+        let messages: Vec<nats::MarketHistories>= queue_lock.drain(0..queue_size).collect();
+        drop(queue_lock);
+
+        let result = utils::db::insert_market_histories(&pool, messages).await;
+
+        let rows_affected = match result {
+            Ok(rows_affected) => rows_affected.rows_affected(),
+            Err(err) => {
+                warn!("Failed to insert market histories: {}", err);
+                continue;
+            }
+        };
+
+        let end = chrono::Utc::now();
+
+        info!(
+            "Inserted {} market histories in {} ms",
             rows_affected,
             end.signed_duration_since(start).num_milliseconds()
         );
