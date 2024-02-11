@@ -95,7 +95,10 @@ ON CONFLICT (id) DO
         unit_price_silver = EXCLUDED.unit_price_silver,
         amount = EXCLUDED.amount,
         expires_at = EXCLUDED.expires_at,
-        updated_at = EXCLUDED.updated_at",
+        updated_at = EXCLUDED.updated_at
+WHERE EXISTS (
+    SELECT 1 FROM market_order WHERE id = EXCLUDED.id
+)",
         &ids,
         &item_unique_names,
         &location_ids,
