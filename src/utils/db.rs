@@ -83,15 +83,13 @@ FROM UNNEST(
         expires_at,
         created_at,
         updated_at)
+    WHERE item_unique_name IN (SELECT unique_name FROM item)
 ON CONFLICT (id) DO
     UPDATE SET
         unit_price_silver = EXCLUDED.unit_price_silver,
         amount = EXCLUDED.amount,
         expires_at = EXCLUDED.expires_at,
-        updated_at = EXCLUDED.updated_at
-WHERE EXISTS (
-    SELECT 1 FROM market_order WHERE id = EXCLUDED.id
-)",
+        updated_at = EXCLUDED.updated_at",
         &ids,
         &item_unique_names,
         &location_ids,
