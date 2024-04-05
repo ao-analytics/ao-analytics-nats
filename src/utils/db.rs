@@ -9,29 +9,38 @@ pub async fn insert_market_orders(
     let mut item_unique_names: Vec<String> = Vec::new();
     let mut location_ids: Vec<String> = Vec::new();
     let mut quality_levels: Vec<i32> = Vec::new();
-    let mut enchantment_levels: Vec<i32> = Vec::new();
     let mut unit_prices_silver: Vec<i32> = Vec::new();
     let mut amounts: Vec<i32> = Vec::new();
     let mut auction_types: Vec<String> = Vec::new();
     let mut expires_ats: Vec<chrono::NaiveDateTime> = Vec::new();
-    let mut created_ats: Vec<chrono::NaiveDateTime> = Vec::new();
     let mut updated_ats: Vec<chrono::NaiveDateTime> = Vec::new();
+    let mut created_ats: Vec<chrono::NaiveDateTime> = Vec::new();
+
 
     for market_order in market_orders.iter().rev() {
         ids.push(market_order.id);
         item_unique_names.push(market_order.item_unique_name.clone());
         location_ids.push(market_order.location_id.clone());
         quality_levels.push(market_order.quality_level);
-        enchantment_levels.push(market_order.enchantment_level);
         unit_prices_silver.push(market_order.unit_price_silver);
         amounts.push(market_order.amount);
         auction_types.push(market_order.auction_type.clone());
         expires_ats.push(market_order.expires_at);
-        created_ats.push(market_order.created_at);
         updated_ats.push(market_order.updated_at);
+        created_ats.push(market_order.created_at);
     }
 
     let transaction = pool.begin().await.unwrap();
+
+
+    // ensure unique ids (this is faster than a trigger)
+    sqlx::query!(
+        "
+DELETE FROM market_order WHERE id IN (SELECT id FROM UNNEST($1::BIGINT[]) as id(id))",
+        &ids
+    )
+    .execute(pool)
+    .await?;
 
     let result = sqlx::query!(
         "
@@ -40,24 +49,20 @@ INSERT INTO market_order (
     item_unique_name,
     location_id,
     quality_level,
-    enchantment_level,
     unit_price_silver,
     amount,
     auction_type,
     expires_at,
-    created_at,
     updated_at)
 SELECT DISTINCT ON (id)
     id,
     item_unique_name,
     location_id,
     quality_level,
-    enchantment_level,
     unit_price_silver,
     amount,
     auction_type,
     expires_at,
-    created_at,
     updated_at
 FROM UNNEST(
     $1::BIGINT[],
@@ -66,40 +71,29 @@ FROM UNNEST(
     $4::INT[],
     $5::INT[],
     $6::INT[],
-    $7::INT[],
-    $8::VARCHAR[],
-    $9::TIMESTAMP[],
-    $10::TIMESTAMP[],
-    $11::TIMESTAMP[]) 
+    $7::VARCHAR[],
+    $8::TIMESTAMP[],
+    $9::TIMESTAMP[]) 
     AS market_order(
         id,
         item_unique_name,
         location_id,
         quality_level,
-        enchantment_level,
         unit_price_silver,
         amount,
         auction_type,
         expires_at,
-        created_at,
         updated_at)
     WHERE item_unique_name IN (SELECT unique_name FROM item)
-ON CONFLICT (id) DO
-    UPDATE SET
-        unit_price_silver = EXCLUDED.unit_price_silver,
-        amount = EXCLUDED.amount,
-        expires_at = EXCLUDED.expires_at,
-        updated_at = EXCLUDED.updated_at",
+ON CONFLICT DO NOTHING",
         &ids,
         &item_unique_names,
         &location_ids,
         &quality_levels,
-        &enchantment_levels,
         &unit_prices_silver,
         &amounts,
         &auction_types,
         &expires_ats,
-        &created_ats,
         &updated_ats
     )
     .execute(pool)
