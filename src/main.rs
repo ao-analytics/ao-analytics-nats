@@ -8,7 +8,7 @@ use aodata_models::{db, nats};
 
 use futures_util::StreamExt;
 use sqlx::postgres::PgPoolOptions;
-use sqlx::types::chrono;
+use sqlx::types::chrono::{self};
 use sqlx::{Pool, Postgres};
 
 use tracing::{info, warn};
