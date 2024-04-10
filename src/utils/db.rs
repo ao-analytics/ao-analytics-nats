@@ -1,5 +1,5 @@
 use aodata_models::db;
-use sqlx::{postgres::PgQueryResult, types::chrono, Pool, Postgres};
+use sqlx::{postgres::PgQueryResult, types::chrono::{self, Utc}, Pool, Postgres};
 
 pub async fn insert_market_orders(
     pool: &Pool<Postgres>,
@@ -12,9 +12,9 @@ pub async fn insert_market_orders(
     let mut unit_prices_silver: Vec<i32> = Vec::new();
     let mut amounts: Vec<i32> = Vec::new();
     let mut auction_types: Vec<String> = Vec::new();
-    let mut expires_ats: Vec<chrono::NaiveDateTime> = Vec::new();
-    let mut updated_ats: Vec<chrono::NaiveDateTime> = Vec::new();
-    let mut created_ats: Vec<chrono::NaiveDateTime> = Vec::new();
+    let mut expires_ats: Vec<chrono::DateTime<Utc>> = Vec::new();
+    let mut updated_ats: Vec<chrono::DateTime<Utc>> = Vec::new();
+    let mut created_ats: Vec<chrono::DateTime<Utc>> = Vec::new();
 
 
     for market_order in market_orders.iter().rev() {
@@ -72,8 +72,8 @@ FROM UNNEST(
     $5::INT[],
     $6::INT[],
     $7::VARCHAR[],
-    $8::TIMESTAMP[],
-    $9::TIMESTAMP[]) 
+    $8::TIMESTAMPTZ[],
+    $9::TIMESTAMPTZ[]) 
     AS market_order(
         id,
         item_unique_name,
