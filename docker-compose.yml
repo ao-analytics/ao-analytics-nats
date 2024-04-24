@@ -4,8 +4,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    volumes: 
-      - ./data:/data
+    env_file:
+      - .env
     restart: unless-stopped
     depends_on:
       - ao-analytics-db
