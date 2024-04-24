@@ -1,8 +1,6 @@
-#[macro_use]
-extern crate dotenv_codegen;
 
-use tokio::sync::RwLock;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use aodata_models::{db, nats};
 
@@ -18,32 +16,34 @@ mod utils;
 
 #[tokio::main]
 async fn main() -> Result<(), async_nats::SubscribeError> {
-    tracing_subscriber::fmt::init();
+    let config = utils::config::Config::from_env();
 
-    let db_url = dotenv!("DATABASE_URL");
+    let config = match config {
+        Some(config) => config,
+        None => {
+            panic!("Failed to initialize config");
+        }
+    };
+
+    tracing_subscriber::fmt::init();
 
     let pool = PgPoolOptions::new()
         .max_connections(5)
-        .connect(db_url)
+        .connect(&config.db_url)
         .await
         .unwrap();
-
-    let nats_url = dotenv!("NATS_URL");
-    let nats_market_orders_subject = dotenv!("NATS_MARKET_ORDERS_SUBJECT");
-    let nats_user = dotenv!("NATS_USER").to_string();
-    let nats_password = dotenv!("NATS_PASSWORD").to_string();
 
     let client = async_nats::ConnectOptions::new()
-        .user_and_password(nats_user, nats_password)
-        .connect(nats_url)
+        .user_and_password(config.nats_user, config.nats_password)
+        .connect(&config.nats_url)
         .await
         .unwrap();
 
-    info!("Connected to NATS server at {}", nats_url);
+    info!("Connected to NATS server at {}", &config.nats_url);
 
-    let market_orders_subcriber = client.subscribe(nats_market_orders_subject).await?;
+    let market_orders_subcriber = client.subscribe(config.nats_subject.to_string()).await?;
 
-    info!("Subscribed to subject {}", nats_market_orders_subject);
+    info!("Subscribed to subject {}", &config.nats_subject);
 
     let market_orders: Arc<RwLock<Vec<db::MarketOrder>>> = Arc::new(RwLock::new(Vec::new()));
 
@@ -57,14 +57,13 @@ async fn main() -> Result<(), async_nats::SubscribeError> {
     let mut messages = futures_util::stream::select_all([market_orders_subcriber]);
 
     while let Some(msg) = messages.next().await {
-
-        if msg.subject.as_str() != nats_market_orders_subject {
+        if msg.subject.as_str() != &config.nats_subject {
             warn!("Unknown subject: {}", msg.subject);
             continue;
         }
-        
+
         let parse_result = serde_json::from_slice::<nats::MarketOrder>(&msg.payload);
-        
+
         let market_order = match parse_result {
             Ok(market_order) => market_order,
             Err(err) => {
@@ -105,28 +104,48 @@ async fn handle_market_orders_messages(
             continue;
         }
 
-        let start = chrono::Utc::now();
-
         let mut queue_lock = market_orders.write().await;
         let messages: Vec<db::MarketOrder> = queue_lock.drain(0..queue_size).collect();
         drop(queue_lock);
 
-        let result = utils::db::insert_market_orders(&pool, messages).await;
+        let start = chrono::Utc::now();
 
-        let rows_affected = match result {
-            Ok(rows_affected) => rows_affected.rows_affected(),
-            Err(err) => {
-                warn!("Failed to insert market orders: {}", err);
-                continue;
-            }
-        };
+        let result = utils::db::insert_market_orders(&pool, &messages).await;
 
         let end = chrono::Utc::now();
 
-        info!(
-            "Inserted {} market orders in {} ms",
-            rows_affected,
-            end.signed_duration_since(start).num_milliseconds()
-        );
+        match result {
+            Ok(result) => {
+                info!(
+                    "Inserted {} market orders in {} ms",
+                    result.rows_affected(),
+                    end.signed_duration_since(start).num_milliseconds()
+                );
+            }
+            Err(err) => {
+                warn!("Failed to insert market orders: {}", err);
+            }
+        };
+
+        let start = chrono::Utc::now();
+
+        let result = utils::db::insert_market_orders_backup(&pool, &messages).await;
+
+        let end = chrono::Utc::now();
+
+        match result {
+            Ok(rows_affected) => {
+                info!(
+                    "Backed up {} market orders in {} ms",
+                    rows_affected.rows_affected(),
+                    end.signed_duration_since(start).num_milliseconds()
+                );
+            }
+            Err(err) => {
+                warn!("Failed to insert market orders backup: {}", err);
+            }
+        }
+
+        
     }
 }
