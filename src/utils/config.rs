@@ -36,7 +36,7 @@ fn get_var_from_env_or_dotenv(name: &str) -> Option<String> {
         Ok(var) => Some(var),
         Err(_) => {
             error!("{} is not set", name);
-            return None;
+            None
         },
     }
 }

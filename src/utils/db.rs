@@ -4,7 +4,7 @@ use tracing::warn;
 
 pub async fn insert_market_orders(
     pool: &Pool<Postgres>,
-    market_orders: &Vec<db::MarketOrder>,
+    market_orders: &[db::MarketOrder],
 ) -> Result<PgQueryResult, sqlx::Error> {
     let mut ids: Vec<i64> = Vec::new();
     let mut item_unique_names: Vec<String> = Vec::new();
@@ -111,18 +111,18 @@ ON CONFLICT DO NOTHING",
     match result {
         Ok(result) => {
             transaction.commit().await.unwrap();
-            return Ok(result);
+            Ok(result)
         }
         Err(e) => {
             transaction.rollback().await.unwrap();
-            return Err(e);
+            Err(e)
         }
     }
 }
 
 pub async fn insert_market_orders_backup(
     pool: &Pool<Postgres>,
-    market_orders: &Vec<db::MarketOrder>,
+    market_orders: &[db::MarketOrder],
 ) -> Result<PgQueryResult, sqlx::Error> {
     let mut ids: Vec<i64> = Vec::new();
     let mut item_unique_names: Vec<String> = Vec::new();
@@ -210,11 +210,11 @@ FROM UNNEST(
     match result {
         Ok(result) => {
             transaction.commit().await.unwrap();
-            return Ok(result);
+            Ok(result)
         }
         Err(e) => {
             transaction.rollback().await.unwrap();
-            return Err(e);
+            Err(e)
         }
     }
 }
