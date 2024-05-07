@@ -12,7 +12,6 @@ use sqlx::{Pool, Postgres};
 
 use tracing::{info, warn};
 
-
 mod utils;
 
 #[tokio::main]
@@ -77,7 +76,10 @@ async fn main() -> Result<(), async_nats::SubscribeError> {
         let market_order = match parse_result {
             Ok(market_order) => market_order,
             Err(err) => {
-                warn!("Failed to parse market order message: {:?} {}", &msg.payload, err);
+                warn!(
+                    "Failed to parse market order message: {:?} {}",
+                    &msg.payload, err
+                );
                 continue;
             }
         };
@@ -114,45 +116,48 @@ async fn handle_market_orders_messages(
         }
 
         let mut lock = market_orders.write().await;
-                let market_orders: Vec<db::MarketOrder> = lock.drain(..).collect();
-                drop(lock);
-    
-                let start = chrono::Utc::now();
-    
-            let result = utils::db::insert_market_orders(&pool, &market_orders).await;
-    
-            let end = chrono::Utc::now();
-    
-            match result {
-                Ok(result) => {
-                    info!(
-                        "Inserted {} market orders in {} ms",
-                        result.rows_affected(),
-                        end.signed_duration_since(start).num_milliseconds()
-                    );
-                }
-                Err(err) => {
-                    warn!("Failed to insert market orders: {}", err);
-                }
-            };
-    
-            let start = chrono::Utc::now();
-    
-            let result = utils::db::insert_market_orders_backup(&pool, &market_orders).await;
-    
-            let end = chrono::Utc::now();
-    
-            match result {
-                Ok(rows_affected) => {
-                    info!(
-                        "Backed up {} market orders in {} ms",
-                        rows_affected.rows_affected(),
-                        end.signed_duration_since(start).num_milliseconds()
-                    );
-                }
-                Err(err) => {
-                    warn!("Failed to insert market orders backup: {}", err);
-                }
+        if lock.is_empty() {
+            continue;
+        }
+        let market_orders: Vec<db::MarketOrder> = lock.drain(..).collect();
+        drop(lock);
+
+        let start = chrono::Utc::now();
+
+        let result = utils::db::insert_market_orders(&pool, &market_orders).await;
+
+        let end = chrono::Utc::now();
+
+        match result {
+            Ok(result) => {
+                info!(
+                    "Inserted {} market orders in {} ms",
+                    result.rows_affected(),
+                    end.signed_duration_since(start).num_milliseconds()
+                );
             }
+            Err(err) => {
+                warn!("Failed to insert market orders: {}", err);
+            }
+        };
+
+        let start = chrono::Utc::now();
+
+        let result = utils::db::insert_market_orders_backup(&pool, &market_orders).await;
+
+        let end = chrono::Utc::now();
+
+        match result {
+            Ok(rows_affected) => {
+                info!(
+                    "Backed up {} market orders in {} ms",
+                    rows_affected.rows_affected(),
+                    end.signed_duration_since(start).num_milliseconds()
+                );
+            }
+            Err(err) => {
+                warn!("Failed to insert market orders backup: {}", err);
+            }
+        }
     }
 }
