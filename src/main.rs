@@ -11,7 +11,7 @@ use sqlx::types::chrono::{self};
 use sqlx::{Pool, Postgres};
 
 use tracing::{info, warn};
-use tracing_subscriber;
+
 
 mod utils;
 
