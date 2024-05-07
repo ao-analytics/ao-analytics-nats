@@ -1,5 +1,9 @@
 use aodata_models::db;
-use sqlx::{postgres::PgQueryResult, types::chrono::{self, Utc}, Pool, Postgres};
+use sqlx::{
+    postgres::PgQueryResult,
+    types::chrono::{self, Utc},
+    Pool, Postgres,
+};
 use tracing::warn;
 
 pub async fn insert_market_orders(
@@ -17,7 +21,6 @@ pub async fn insert_market_orders(
     let mut updated_ats: Vec<chrono::DateTime<Utc>> = Vec::new();
     let mut created_ats: Vec<chrono::DateTime<Utc>> = Vec::new();
 
-
     for market_order in market_orders.iter().rev() {
         ids.push(market_order.id);
         item_unique_names.push(market_order.item_unique_name.clone());
@@ -33,7 +36,6 @@ pub async fn insert_market_orders(
 
     let transaction = pool.begin().await.unwrap();
 
-
     // ensure unique ids (this is faster than a trigger)
     let result = sqlx::query!(
         "
@@ -48,7 +50,6 @@ DELETE FROM market_order WHERE id IN (SELECT id FROM UNNEST($1::BIGINT[]) as id(
         Err(e) => {
             warn!("Failed to delete market orders: {:?}", e);
         }
-        
     }
 
     let result = sqlx::query!(
@@ -134,7 +135,6 @@ pub async fn insert_market_orders_backup(
     let mut expires_ats: Vec<chrono::DateTime<Utc>> = Vec::new();
     let mut updated_ats: Vec<chrono::DateTime<Utc>> = Vec::new();
     let mut created_ats: Vec<chrono::DateTime<Utc>> = Vec::new();
-
 
     for market_order in market_orders.iter().rev() {
         ids.push(market_order.id);

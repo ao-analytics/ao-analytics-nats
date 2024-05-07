@@ -9,7 +9,6 @@ pub struct Config {
     pub db_url: String,
 }
 
-
 impl Config {
     pub fn from_env() -> Option<Self> {
         let nats_url = get_var_from_env_or_dotenv("NATS_URL")?;
@@ -37,6 +36,6 @@ fn get_var_from_env_or_dotenv(name: &str) -> Option<String> {
         Err(_) => {
             error!("{} is not set", name);
             None
-        },
+        }
     }
 }
