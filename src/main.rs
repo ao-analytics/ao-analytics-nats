@@ -34,42 +34,134 @@ async fn main() -> Result<(), async_nats::SubscribeError> {
         .unwrap();
 
     let client = async_nats::ConnectOptions::new()
-        .user_and_password(config.nats_user, config.nats_password)
+        .user_and_password(
+            config.nats_user.to_string(),
+            config.nats_password.to_string(),
+        )
         .connect(&config.nats_url)
         .await
         .unwrap();
 
     info!("Connected to NATS server at {}", &config.nats_url);
 
-    let mut messages = client.subscribe(config.nats_subject.to_string()).await?;
-
-    info!("Subscribed to subject {}", &config.nats_subject);
-
-    let market_orders: Arc<RwLock<Vec<db::MarketOrder>>> = Arc::new(RwLock::new(Vec::new()));
     let token = tokio_util::sync::CancellationToken::new();
     let mut int_signal = signal::unix::signal(signal::unix::SignalKind::interrupt()).unwrap();
     let mut term_signal = signal::unix::signal(signal::unix::SignalKind::terminate()).unwrap();
 
-    let join_handle = tokio::spawn(handle_market_orders_messages(
-        market_orders.clone(),
+    let market_orders_join_handle = tokio::spawn(handle_market_orders_messages(
+        client.clone(),
         pool.clone(),
         token.clone(),
+        config.clone(),
     ));
 
-    info!("Started market order message handler thread");
+    let market_history_join_handle = tokio::spawn(handle_market_histories_messages(
+        client.clone(),
+        pool.clone(),
+        token.clone(),
+        config.clone(),
+    ));
 
-    while let Some(msg) = select! {
+    select! {
         _ = int_signal.recv() => {
             info!("Received interrupt signal");
             token.cancel();
-            None
         },
         _ = term_signal.recv() => {
             info!("Received terminate signal");
             token.cancel();
-            None
-        },
-        msg = messages.next() => msg
+        }
+    };
+
+    _ = tokio::join! {
+        market_orders_join_handle,
+        market_history_join_handle,
+    };
+
+    pool.close().await;
+
+    Ok(())
+}
+
+async fn handle_market_orders_messages(
+    client: async_nats::Client,
+    pool: Pool<Postgres>,
+    token: tokio_util::sync::CancellationToken,
+    config: utils::config::Config,
+) {
+    let market_orders: Arc<RwLock<Vec<db::MarketOrder>>> = Arc::new(RwLock::new(Vec::new()));
+
+    let subscription = client
+        .subscribe(config.nats_market_order_subject.to_string())
+        .await;
+
+    let mut subscription = match subscription {
+        Ok(subscription) => subscription,
+        Err(err) => {
+            warn!("Failed to subscribe to market orders: {}", err);
+            return;
+        }
+    };
+
+    let inserter_join_handle = tokio::spawn({
+        let token = token.clone();
+        let market_orders = market_orders.clone();
+
+        async move {
+            while !token.is_cancelled() {
+                select! {
+                        _ = token.cancelled() => {},
+                        _ = tokio::time::sleep(Duration::from_secs(60)) => {}
+                }
+
+                let market_orders = {
+                    let mut lock = market_orders.write().await;
+                    if lock.is_empty() {
+                        continue;
+                    }
+                    lock.drain(..).collect::<Vec<db::MarketOrder>>()
+                };
+
+                let start = chrono::Utc::now();
+                let result = utils::db::insert_market_orders(&pool, &market_orders).await;
+                let end = chrono::Utc::now();
+
+                match result {
+                    Ok(result) => {
+                        info!(
+                            "Inserted {} market orders in {} ms",
+                            result.rows_affected(),
+                            end.signed_duration_since(start).num_milliseconds()
+                        );
+                    }
+                    Err(err) => {
+                        warn!("Failed to insert market orders: {}", err);
+                    }
+                }
+
+                let start = chrono::Utc::now();
+                let result = utils::db::insert_market_orders_backup(&pool, &market_orders).await;
+                let end = chrono::Utc::now();
+
+                match result {
+                    Ok(result) => {
+                        info!(
+                            "Inserted {} market orders in {} ms",
+                            result.rows_affected(),
+                            end.signed_duration_since(start).num_milliseconds()
+                        );
+                    }
+                    Err(err) => {
+                        warn!("Failed to insert market orders: {}", err);
+                    }
+                }
+            }
+        }
+    });
+
+    while let Some(msg) = select! {
+        _ = token.cancelled() => None,
+        msg = subscription.next() => msg,
     } {
         let parse_result = serde_json::from_slice::<nats::MarketOrder>(&msg.payload);
 
@@ -97,67 +189,130 @@ async fn main() -> Result<(), async_nats::SubscribeError> {
         market_orders.write().await.push(market_order);
     }
 
-    _ = tokio::join!(join_handle);
-
-    pool.close().await;
-
-    Ok(())
+    _ = tokio::join!(inserter_join_handle);
 }
 
-async fn handle_market_orders_messages(
-    market_orders: Arc<RwLock<Vec<db::MarketOrder>>>,
+async fn handle_market_histories_messages(
+    client: async_nats::Client,
     pool: Pool<Postgres>,
     token: tokio_util::sync::CancellationToken,
+    config: utils::config::Config,
 ) {
-    while !token.is_cancelled() {
-        select! {
-            _ = token.cancelled() => {},
-            _ = tokio::time::sleep(Duration::from_secs(60)) => {}
+    let market_histories: Arc<RwLock<Vec<Vec<db::MarketHistory>>>> =
+        Arc::new(RwLock::new(Vec::new()));
+
+    let subscription = client
+        .subscribe(config.nats_market_history_subject.to_string())
+        .await;
+
+    let mut subscription = match subscription {
+        Ok(subscription) => subscription,
+        Err(err) => {
+            warn!("Failed to subscribe to market histories: {}", err);
+            return;
         }
+    };
 
-        let mut lock = market_orders.write().await;
-        if lock.is_empty() {
-            continue;
-        }
-        let market_orders: Vec<db::MarketOrder> = lock.drain(..).collect();
-        drop(lock);
+    let inserter_join_handle = tokio::spawn({
+        let token = token.clone();
+        let market_history = market_histories.clone();
 
-        let start = chrono::Utc::now();
+        async move {
+            while !token.is_cancelled() {
+                select! {
+                    _ = token.cancelled() => {},
+                    _ = tokio::time::sleep(Duration::from_secs(60)) => {}
+                }
 
-        let result = utils::db::insert_market_orders(&pool, &market_orders).await;
+                {
+                    let lock = market_history.read().await;
+                    if lock.is_empty() {
+                        continue;
+                    }
+                }
 
-        let end = chrono::Utc::now();
+                let market_histories = {
+                    let mut lock = market_history.write().await;
+                    if lock.is_empty() {
+                        continue;
+                    }
+                    let market_history: Vec<Vec<db::MarketHistory>> = lock.drain(..).collect();
+                    market_history
+                };
 
-        match result {
-            Ok(result) => {
-                info!(
-                    "Inserted {} market orders in {} ms",
-                    result.rows_affected(),
-                    end.signed_duration_since(start).num_milliseconds()
-                );
+                info!("received {} market histories", market_histories.len());
+
+                let start = chrono::Utc::now();
+
+                let result = utils::db::insert_market_histories(&pool, &market_histories).await;
+
+                let end = chrono::Utc::now();
+
+                match result {
+                    Ok(result) => {
+                        info!(
+                            "Inserted {} market history entries in {} ms",
+                            result.rows_affected(),
+                            end.signed_duration_since(start).num_milliseconds()
+                        );
+                    }
+                    Err(err) => {
+                        warn!("Failed to insert market history entries: {}", err);
+                    }
+                };
+
+                let start = chrono::Utc::now();
+
+                let result =
+                    utils::db::insert_market_histories_backup(&pool, &market_histories).await;
+
+                let end = chrono::Utc::now();
+
+                match result {
+                    Ok(rows_affected) => {
+                        info!(
+                            "Backed up {} market history entries in {} ms",
+                            rows_affected.rows_affected(),
+                            end.signed_duration_since(start).num_milliseconds()
+                        );
+                    }
+                    Err(err) => {
+                        warn!("Failed to insert market history backup: {}", err);
+                    }
+                }
             }
+        }
+    });
+
+    while let Some(msg) = select! {
+        _ = token.cancelled() => None,
+        msg = subscription.next() => msg
+    } {
+        let parse_result = serde_json::from_slice::<nats::MarketHistories>(&msg.payload);
+
+        let market_history = match parse_result {
+            Ok(market_history) => market_history,
             Err(err) => {
-                warn!("Failed to insert market orders: {}", err);
+                warn!(
+                    "Failed to parse market history message: {:?} {}",
+                    &msg.payload, err
+                );
+                continue;
             }
         };
 
-        let start = chrono::Utc::now();
+        let market_history = db::MarketHistory::from_nats(market_history);
 
-        let result = utils::db::insert_market_orders_backup(&pool, &market_orders).await;
-
-        let end = chrono::Utc::now();
-
-        match result {
-            Ok(rows_affected) => {
-                info!(
-                    "Backed up {} market orders in {} ms",
-                    rows_affected.rows_affected(),
-                    end.signed_duration_since(start).num_milliseconds()
-                );
+        let market_history = match market_history {
+            Some(market_history) => market_history,
+            None => {
+                warn!("Failed to parse market history message");
+                continue;
             }
-            Err(err) => {
-                warn!("Failed to insert market orders backup: {}", err);
-            }
-        }
+        };
+
+        market_histories.write().await.push(market_history);
     }
+
+    _ = tokio::join!(inserter_join_handle);
 }

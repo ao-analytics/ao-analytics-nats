@@ -83,7 +83,7 @@ FROM UNNEST(
     $6::INT[],
     $7::VARCHAR[],
     $8::TIMESTAMPTZ[],
-    $9::TIMESTAMPTZ[]) 
+    $9::TIMESTAMPTZ[])
     AS market_order(
         id,
         item_unique_name,
@@ -182,7 +182,7 @@ FROM UNNEST(
     $6::INT[],
     $7::VARCHAR[],
     $8::TIMESTAMPTZ[],
-    $9::TIMESTAMPTZ[]) 
+    $9::TIMESTAMPTZ[])
     AS market_order(
         id,
         item_unique_name,
@@ -217,4 +217,18 @@ FROM UNNEST(
             Err(e)
         }
     }
+}
+
+pub async fn insert_market_histories(
+    pool: &Pool<Postgres>,
+    market_histories: &[Vec<db::MarketHistory>],
+) -> Result<PgQueryResult, sqlx::Error> {
+    todo!()
+}
+
+pub async fn insert_market_histories_backup(
+    pool: &Pool<Postgres>,
+    market_histories: &[Vec<db::MarketHistory>],
+) -> Result<PgQueryResult, sqlx::Error> {
+    todo!()
 }
