@@ -198,8 +198,7 @@ async fn handle_market_histories_messages(
     token: tokio_util::sync::CancellationToken,
     config: utils::config::Config,
 ) {
-    let market_histories: Arc<RwLock<Vec<Vec<db::MarketHistory>>>> =
-        Arc::new(RwLock::new(Vec::new()));
+    let market_histories: Arc<RwLock<Vec<db::MarketHistory>>> = Arc::new(RwLock::new(Vec::new()));
 
     let subscription = client
         .subscribe(config.nats_market_history_subject.to_string())
@@ -236,11 +235,9 @@ async fn handle_market_histories_messages(
                     if lock.is_empty() {
                         continue;
                     }
-                    let market_history: Vec<Vec<db::MarketHistory>> = lock.drain(..).collect();
+                    let market_history: Vec<db::MarketHistory> = lock.drain(..).collect();
                     market_history
                 };
-
-                info!("received {} market histories", market_histories.len());
 
                 let start = chrono::Utc::now();
 
@@ -311,7 +308,7 @@ async fn handle_market_histories_messages(
             }
         };
 
-        market_histories.write().await.push(market_history);
+        market_histories.write().await.extend(market_history);
     }
 
     _ = tokio::join!(inserter_join_handle);

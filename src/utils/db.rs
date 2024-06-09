@@ -221,14 +221,180 @@ FROM UNNEST(
 
 pub async fn insert_market_histories(
     pool: &Pool<Postgres>,
-    market_histories: &[Vec<db::MarketHistory>],
+    market_histories: &[db::MarketHistory],
 ) -> Result<PgQueryResult, sqlx::Error> {
-    todo!()
+    let mut item_unique_names: Vec<String> = Vec::new();
+    let mut location_ids: Vec<String> = Vec::new();
+    let mut quality_levels: Vec<i32> = Vec::new();
+    let mut silver_amounts: Vec<i32> = Vec::new();
+    let mut amounts: Vec<i32> = Vec::new();
+    let mut timescales: Vec<i32> = Vec::new();
+    let mut timestamps: Vec<chrono::DateTime<Utc>> = Vec::new();
+    let mut updated_ats: Vec<chrono::DateTime<Utc>> = Vec::new();
+
+    for market_history in market_histories.iter().rev() {
+        item_unique_names.push(market_history.item_id.clone());
+        location_ids.push(market_history.location_id.clone());
+        quality_levels.push(market_history.quality_level);
+        silver_amounts.push(market_history.silver_amount);
+        amounts.push(market_history.item_amount);
+        timescales.push(market_history.timescale.clone());
+        timestamps.push(market_history.timestamp);
+        updated_ats.push(market_history.updated_at);
+    }
+
+    let transaction = pool.begin().await.unwrap();
+
+    let result = sqlx::query!(
+        "
+INSERT INTO market_history (
+    item_unique_name,
+    location_id,
+    quality_level,
+    silver_amount,
+    item_amount,
+    timescale,
+    timestamp,
+    updated_at)
+SELECT DISTINCT ON (item_unique_name, location_id, quality_level, timescale, timestamp)
+    item_unique_name,
+    location_id,
+    quality_level,
+    silver_amount,
+    item_amount,
+    timescale,
+    timestamp,
+    updated_at
+FROM UNNEST(
+    $1::VARCHAR[],
+    $2::VARCHAR[],
+    $3::INT[],
+    $4::INT[],
+    $5::INT[],
+    $6::INT[],
+    $7::TIMESTAMPTZ[],
+    $8::TIMESTAMPTZ[]) AS market_history(
+        item_unique_name,
+        location_id,
+        quality_level,
+        silver_amount,
+        item_amount,
+        timescale,
+        timestamp,
+        updated_at)
+ON CONFLICT (item_unique_name, location_id, quality_level, timescale, timestamp)
+DO UPDATE SET
+    updated_at = EXCLUDED.updated_at,
+    silver_amount = EXCLUDED.silver_amount,
+    item_amount = EXCLUDED.item_amount;
+        ",
+        &item_unique_names,
+        &location_ids,
+        &quality_levels,
+        &silver_amounts,
+        &amounts,
+        &timescales,
+        &timestamps,
+        &updated_ats
+    )
+    .execute(pool)
+    .await;
+
+    match result {
+        Ok(result) => {
+            transaction.commit().await.unwrap();
+            Ok(result)
+        }
+        Err(e) => {
+            transaction.rollback().await.unwrap();
+            Err(e)
+        }
+    }
 }
 
 pub async fn insert_market_histories_backup(
     pool: &Pool<Postgres>,
-    market_histories: &[Vec<db::MarketHistory>],
+    market_histories: &[db::MarketHistory],
 ) -> Result<PgQueryResult, sqlx::Error> {
-    todo!()
+    let mut item_unique_names: Vec<String> = Vec::new();
+    let mut location_ids: Vec<String> = Vec::new();
+    let mut quality_levels: Vec<i32> = Vec::new();
+    let mut silver_amounts: Vec<i32> = Vec::new();
+    let mut amounts: Vec<i32> = Vec::new();
+    let mut timescales: Vec<i32> = Vec::new();
+    let mut timestamps: Vec<chrono::DateTime<Utc>> = Vec::new();
+    let mut updated_ats: Vec<chrono::DateTime<Utc>> = Vec::new();
+
+    for market_history in market_histories.iter() {
+        item_unique_names.push(market_history.item_id.clone());
+        location_ids.push(market_history.location_id.clone());
+        quality_levels.push(market_history.quality_level);
+        silver_amounts.push(market_history.silver_amount);
+        amounts.push(market_history.item_amount);
+        timescales.push(market_history.timescale.clone());
+        timestamps.push(market_history.timestamp);
+        updated_ats.push(market_history.updated_at);
+    }
+
+    let transaction = pool.begin().await.unwrap();
+
+    let result = sqlx::query!(
+        "
+INSERT INTO market_history_backup (
+    item_unique_name,
+    location_id,
+    quality_level,
+    silver_amount,
+    item_amount,
+    timescale,
+    timestamp,
+    updated_at)
+SELECT
+    item_unique_name,
+    location_id,
+    quality_level,
+    silver_amount,
+    item_amount,
+    timescale,
+    timestamp,
+    updated_at
+FROM UNNEST(
+    $1::VARCHAR[],
+    $2::VARCHAR[],
+    $3::INT[],
+    $4::INT[],
+    $5::INT[],
+    $6::INT[],
+    $7::TIMESTAMPTZ[],
+    $8::TIMESTAMPTZ[]) AS market_history(
+        item_unique_name,
+        location_id,
+        quality_level,
+        silver_amount,
+        item_amount,
+        timescale,
+        timestamp,
+        updated_at);",
+        &item_unique_names,
+        &location_ids,
+        &quality_levels,
+        &silver_amounts,
+        &amounts,
+        &timescales,
+        &timestamps,
+        &updated_ats
+    )
+    .execute(pool)
+    .await;
+
+    match result {
+        Ok(result) => {
+            transaction.commit().await.unwrap();
+            Ok(result)
+        }
+        Err(e) => {
+            transaction.rollback().await.unwrap();
+            Err(e)
+        }
+    }
 }
