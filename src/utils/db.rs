@@ -130,7 +130,7 @@ pub async fn insert_market_orders_backup(
     let mut location_ids: Vec<String> = Vec::new();
     let mut quality_levels: Vec<i32> = Vec::new();
     let mut unit_prices_silver: Vec<i32> = Vec::new();
-    let mut amounts: Vec<i32> = Vec::new();
+    let mut item_amounts: Vec<i32> = Vec::new();
     let mut auction_types: Vec<String> = Vec::new();
     let mut expires_ats: Vec<chrono::DateTime<Utc>> = Vec::new();
     let mut updated_ats: Vec<chrono::DateTime<Utc>> = Vec::new();
@@ -142,7 +142,7 @@ pub async fn insert_market_orders_backup(
         location_ids.push(market_order.location_id.clone());
         quality_levels.push(market_order.quality_level);
         unit_prices_silver.push(market_order.unit_price_silver);
-        amounts.push(market_order.amount);
+        item_amounts.push(market_order.amount);
         auction_types.push(market_order.auction_type.clone());
         expires_ats.push(market_order.expires_at);
         updated_ats.push(market_order.updated_at);
@@ -199,7 +199,7 @@ FROM UNNEST(
         &location_ids,
         &quality_levels,
         &unit_prices_silver,
-        &amounts,
+        &item_amounts,
         &auction_types,
         &expires_ats,
         &updated_ats
@@ -227,7 +227,7 @@ pub async fn insert_market_histories(
     let mut location_ids: Vec<String> = Vec::new();
     let mut quality_levels: Vec<i32> = Vec::new();
     let mut silver_amounts: Vec<i32> = Vec::new();
-    let mut amounts: Vec<i32> = Vec::new();
+    let mut item_amounts: Vec<i32> = Vec::new();
     let mut timescales: Vec<i32> = Vec::new();
     let mut timestamps: Vec<chrono::DateTime<Utc>> = Vec::new();
     let mut updated_ats: Vec<chrono::DateTime<Utc>> = Vec::new();
@@ -237,7 +237,7 @@ pub async fn insert_market_histories(
         location_ids.push(market_history.location_id.clone());
         quality_levels.push(market_history.quality_level);
         silver_amounts.push(market_history.silver_amount);
-        amounts.push(market_history.item_amount);
+        item_amounts.push(market_history.item_amount);
         timescales.push(market_history.timescale.clone());
         timestamps.push(market_history.timestamp);
         updated_ats.push(market_history.updated_at);
@@ -286,13 +286,13 @@ ON CONFLICT (item_unique_name, location_id, quality_level, timescale, timestamp)
 DO UPDATE SET
     updated_at = EXCLUDED.updated_at,
     silver_amount = EXCLUDED.silver_amount,
-    item_amount = EXCLUDED.item_amount;
+    item_amount = EXCLUDED.item_amount
         ",
         &item_unique_names,
         &location_ids,
         &quality_levels,
         &silver_amounts,
-        &amounts,
+        &item_amounts,
         &timescales,
         &timestamps,
         &updated_ats
