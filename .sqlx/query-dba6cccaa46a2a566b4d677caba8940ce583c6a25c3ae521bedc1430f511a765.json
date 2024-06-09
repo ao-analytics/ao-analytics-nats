@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nINSERT INTO market_history_backup (\n    item_unique_name,\n    location_id,\n    quality_level,\n    silver_amount,\n    item_amount,\n    timescale,\n    timestamp,\n    updated_at)\nSELECT\n    item_unique_name,\n    location_id,\n    quality_level,\n    silver_amount,\n    item_amount,\n    timescale,\n    timestamp,\n    updated_at\nFROM UNNEST(\n    $1::VARCHAR[],\n    $2::VARCHAR[],\n    $3::INT[],\n    $4::INT[],\n    $5::INT[],\n    $6::INT[],\n    $7::TIMESTAMPTZ[],\n    $8::TIMESTAMPTZ[]) AS market_history(\n        item_unique_name,\n        location_id,\n        quality_level,\n        silver_amount,\n        item_amount,\n        timescale,\n        timestamp,\n        updated_at);",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "VarcharArray",
+        "VarcharArray",
+        "Int4Array",
+        "Int4Array",
+        "Int4Array",
+        "Int4Array",
+        "TimestamptzArray",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dba6cccaa46a2a566b4d677caba8940ce583c6a25c3ae521bedc1430f511a765"
+}
