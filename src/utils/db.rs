@@ -238,7 +238,7 @@ pub async fn insert_market_histories(
         quality_levels.push(market_history.quality_level);
         silver_amounts.push(market_history.silver_amount);
         item_amounts.push(market_history.item_amount);
-        timescales.push(market_history.timescale.clone());
+        timescales.push(market_history.timescale);
         timestamps.push(market_history.timestamp);
         updated_ats.push(market_history.updated_at);
     }
@@ -331,7 +331,7 @@ pub async fn insert_market_histories_backup(
         quality_levels.push(market_history.quality_level);
         silver_amounts.push(market_history.silver_amount);
         amounts.push(market_history.item_amount);
-        timescales.push(market_history.timescale.clone());
+        timescales.push(market_history.timescale);
         timestamps.push(market_history.timestamp);
         updated_ats.push(market_history.updated_at);
     }
