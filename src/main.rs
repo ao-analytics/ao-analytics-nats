@@ -3,7 +3,7 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::{select, signal};
 
-use aodata_models::{db, nats};
+use ao_analytics_models::{db, json::nats};
 
 use futures_util::StreamExt;
 use sqlx::postgres::PgPoolOptions;
@@ -16,6 +16,8 @@ mod utils;
 
 #[tokio::main]
 async fn main() -> Result<(), async_nats::SubscribeError> {
+    tracing_subscriber::fmt::init();
+
     let config = utils::config::Config::from_env();
 
     let config = match config {
@@ -25,11 +27,9 @@ async fn main() -> Result<(), async_nats::SubscribeError> {
         }
     };
 
-    tracing_subscriber::fmt::init();
-
     let pool = PgPoolOptions::new()
         .max_connections(5)
-        .connect(&config.db_url)
+        .connect(&config.database_url)
         .await
         .unwrap();
 
