@@ -1,4 +1,4 @@
-use aodata_models::db;
+use ao_analytics_models::db;
 use sqlx::{
     postgres::PgQueryResult,
     types::chrono::{self, Utc},
