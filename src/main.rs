@@ -138,23 +138,6 @@ async fn handle_market_orders_messages(
                         warn!("Failed to insert market orders: {}", err);
                     }
                 }
-
-                let start = chrono::Utc::now();
-                let result = utils::db::insert_market_orders_backup(&pool, &market_orders).await;
-                let end = chrono::Utc::now();
-
-                match result {
-                    Ok(result) => {
-                        info!(
-                            "Inserted {} market orders in {} ms",
-                            result.rows_affected(),
-                            end.signed_duration_since(start).num_milliseconds()
-                        );
-                    }
-                    Err(err) => {
-                        warn!("Failed to insert market orders: {}", err);
-                    }
-                }
             }
         }
     });
@@ -257,26 +240,6 @@ async fn handle_market_histories_messages(
                         warn!("Failed to insert market history entries: {}", err);
                     }
                 };
-
-                let start = chrono::Utc::now();
-
-                let result =
-                    utils::db::insert_market_histories_backup(&pool, &market_histories).await;
-
-                let end = chrono::Utc::now();
-
-                match result {
-                    Ok(rows_affected) => {
-                        info!(
-                            "Backed up {} market history entries in {} ms",
-                            rows_affected.rows_affected(),
-                            end.signed_duration_since(start).num_milliseconds()
-                        );
-                    }
-                    Err(err) => {
-                        warn!("Failed to insert market history backup: {}", err);
-                    }
-                }
             }
         }
     });
