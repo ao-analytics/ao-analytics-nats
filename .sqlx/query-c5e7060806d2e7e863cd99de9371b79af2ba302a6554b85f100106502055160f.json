@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nINSERT INTO market_order (\n    id,\n    item_unique_name,\n    location_id,\n    tier,\n    enchantment_level,\n    quality_level,\n    unit_price_silver,\n    amount,\n    auction_type,\n    expires_at,\n    updated_at)\nSELECT DISTINCT ON (id)\n    id,\n    market_order.item_unique_name,\n    location_id,\n    (item_data.data->>'@tier')::INT as tier,\n    COALESCE(NULLIF(item_data.data->>'@enchantmentlevel', ''), NULLIF(SPLIT_PART(market_order.item_unique_name, '@', 2), ''), '0')::INT as enchantment_level,\n    quality_level,\n    unit_price_silver,\n    amount,\n    auction_type,\n    expires_at,\n    updated_at\nFROM UNNEST(\n    $1::BIGINT[],\n    $2::VARCHAR[],\n    $3::VARCHAR[],\n    $4::INT[],\n    $5::INT[],\n    $6::INT[],\n    $7::VARCHAR[],\n    $8::TIMESTAMPTZ[],\n    $9::TIMESTAMPTZ[])\n    AS market_order(\n        id,\n        item_unique_name,\n        location_id,\n        quality_level,\n        unit_price_silver,\n        amount,\n        auction_type,\n        expires_at,\n        updated_at)\nJOIN item_data ON (market_order.item_unique_name = item_data.item_unique_name OR REGEXP_REPLACE(market_order.item_unique_name, '@.', '') = item_data.item_unique_name)\nON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8Array",
+        "VarcharArray",
+        "VarcharArray",
+        "Int4Array",
+        "Int4Array",
+        "Int4Array",
+        "VarcharArray",
+        "TimestamptzArray",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c5e7060806d2e7e863cd99de9371b79af2ba302a6554b85f100106502055160f"
+}
