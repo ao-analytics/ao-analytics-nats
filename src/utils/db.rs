@@ -98,7 +98,10 @@ FROM UNNEST(
         auction_type,
         expires_at,
         updated_at)
-JOIN item_data ON (market_order.item_unique_name = item_data.item_unique_name OR REGEXP_REPLACE(market_order.item_unique_name, '@.', '') = item_data.item_unique_name)
+JOIN item_data ON (
+    market_order.item_unique_name = item_data.item_unique_name
+    OR REGEXP_REPLACE(market_order.item_unique_name, '@.*', '') = item_data.item_unique_name
+    OR REGEXP_REPLACE(market_order.item_unique_name, '_EMPTY', '') = item_data.item_unique_name)
 ON CONFLICT DO NOTHING",
         &ids,
         &item_unique_names,
@@ -192,7 +195,10 @@ FROM UNNEST(
         timescale,
         timestamp,
         updated_at)
-JOIN item_data ON (market_history.item_unique_name = item_data.item_unique_name OR REGEXP_REPLACE(market_history.item_unique_name, '@.', '') = item_data.item_unique_name)
+JOIN item_data ON (
+    market_history.item_unique_name = item_data.item_unique_name
+    OR REGEXP_REPLACE(market_history.item_unique_name, '@.*', '') = item_data.item_unique_name
+    OR REGEXP_REPLACE(market_history.item_unique_name, '_EMPTY', '') = item_data.item_unique_name)
 ON CONFLICT (item_unique_name, location_id, quality_level, timescale, timestamp)
 DO UPDATE SET
     updated_at = EXCLUDED.updated_at,
