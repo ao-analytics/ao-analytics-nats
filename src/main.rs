@@ -89,7 +89,8 @@ async fn handle_market_orders_messages(
     token: tokio_util::sync::CancellationToken,
     config: utils::config::Config,
 ) {
-    let market_orders: Arc<RwLock<Vec<db::MarketOrder>>> = Arc::new(RwLock::new(Vec::new()));
+    let market_orders: Arc<RwLock<Vec<db::tables::MarketOrder>>> =
+        Arc::new(RwLock::new(Vec::new()));
 
     let subscription = client
         .subscribe(config.nats_market_order_subject.to_string())
@@ -119,7 +120,7 @@ async fn handle_market_orders_messages(
                     if lock.is_empty() {
                         continue;
                     }
-                    lock.drain(..).collect::<Vec<db::MarketOrder>>()
+                    lock.drain(..).collect::<Vec<db::tables::MarketOrder>>()
                 };
 
                 let start = chrono::Utc::now();
@@ -159,7 +160,7 @@ async fn handle_market_orders_messages(
             }
         };
 
-        let market_order = db::MarketOrder::from_nats(&market_order);
+        let market_order = db::tables::MarketOrder::from_nats(&market_order);
 
         let market_order = match market_order {
             Some(market_order) => market_order,
@@ -181,7 +182,8 @@ async fn handle_market_histories_messages(
     token: tokio_util::sync::CancellationToken,
     config: utils::config::Config,
 ) {
-    let market_histories: Arc<RwLock<Vec<db::MarketHistory>>> = Arc::new(RwLock::new(Vec::new()));
+    let market_histories: Arc<RwLock<Vec<db::tables::MarketHistory>>> =
+        Arc::new(RwLock::new(Vec::new()));
 
     let subscription = client
         .subscribe(config.nats_market_history_subject.to_string())
@@ -218,7 +220,7 @@ async fn handle_market_histories_messages(
                     if lock.is_empty() {
                         continue;
                     }
-                    let market_history: Vec<db::MarketHistory> = lock.drain(..).collect();
+                    let market_history: Vec<db::tables::MarketHistory> = lock.drain(..).collect();
                     market_history
                 };
 
@@ -261,7 +263,7 @@ async fn handle_market_histories_messages(
             }
         };
 
-        let market_history = db::MarketHistory::from_nats(market_history);
+        let market_history = db::tables::MarketHistory::from_nats(market_history);
 
         let market_history = match market_history {
             Some(market_history) => market_history,

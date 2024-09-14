@@ -8,7 +8,7 @@ use tracing::warn;
 
 pub async fn insert_market_orders(
     pool: &Pool<Postgres>,
-    market_orders: &[db::MarketOrder],
+    market_orders: &[db::tables::MarketOrder],
 ) -> Result<PgQueryResult, sqlx::Error> {
     let mut ids: Vec<i64> = Vec::new();
     let mut item_unique_names: Vec<String> = Vec::new();
@@ -131,7 +131,7 @@ ON CONFLICT DO NOTHING",
 
 pub async fn insert_market_histories(
     pool: &Pool<Postgres>,
-    market_histories: &[db::MarketHistory],
+    market_histories: &[db::tables::MarketHistory],
 ) -> Result<PgQueryResult, sqlx::Error> {
     let mut item_unique_names: Vec<String> = Vec::new();
     let mut location_ids: Vec<String> = Vec::new();
