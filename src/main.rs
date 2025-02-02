@@ -106,7 +106,7 @@ async fn handle_market_orders_messages(
 
     let inserter_join_handle = tokio::spawn({
         let token = token.clone();
-        let market_orders = market_orders.clone();
+        let global_market_orders = market_orders.clone();
 
         async move {
             while !token.is_cancelled() {
@@ -115,8 +115,8 @@ async fn handle_market_orders_messages(
                         _ = tokio::time::sleep(Duration::from_secs(60)) => {}
                 }
 
-                let market_orders = {
-                    let mut lock = market_orders.write().await;
+                let mut market_orders = {
+                    let mut lock = global_market_orders.write().await;
                     if lock.is_empty() {
                         continue;
                     }
@@ -137,6 +137,10 @@ async fn handle_market_orders_messages(
                     }
                     Err(err) => {
                         warn!("Failed to insert market orders: {}", err);
+                        global_market_orders
+                            .write()
+                            .await
+                            .append(&mut market_orders);
                     }
                 }
             }
@@ -199,7 +203,7 @@ async fn handle_market_histories_messages(
 
     let inserter_join_handle = tokio::spawn({
         let token = token.clone();
-        let market_history = market_histories.clone();
+        let global_market_histories = market_histories.clone();
 
         async move {
             while !token.is_cancelled() {
@@ -209,14 +213,14 @@ async fn handle_market_histories_messages(
                 }
 
                 {
-                    let lock = market_history.read().await;
+                    let lock = global_market_histories.read().await;
                     if lock.is_empty() {
                         continue;
                     }
                 }
 
-                let market_histories = {
-                    let mut lock = market_history.write().await;
+                let mut market_histories = {
+                    let mut lock = global_market_histories.write().await;
                     if lock.is_empty() {
                         continue;
                     }
@@ -240,6 +244,10 @@ async fn handle_market_histories_messages(
                     }
                     Err(err) => {
                         warn!("Failed to insert market history entries: {}", err);
+                        global_market_histories
+                            .write()
+                            .await
+                            .append(&mut market_histories);
                     }
                 };
             }

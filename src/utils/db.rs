@@ -34,7 +34,7 @@ pub async fn insert_market_orders(
         created_ats.push(market_order.created_at);
     }
 
-    let transaction = pool.begin().await.unwrap();
+    let transaction = pool.begin().await?;
 
     // ensure unique ids (this is faster than a trigger)
     let result = sqlx::query!(
@@ -119,11 +119,11 @@ ON CONFLICT DO NOTHING",
 
     match result {
         Ok(result) => {
-            transaction.commit().await.unwrap();
+            transaction.commit().await?;
             Ok(result)
         }
         Err(e) => {
-            transaction.rollback().await.unwrap();
+            transaction.rollback().await?;
             Err(e)
         }
     }
@@ -153,7 +153,7 @@ pub async fn insert_market_histories(
         updated_ats.push(market_history.updated_at);
     }
 
-    let transaction = pool.begin().await.unwrap();
+    let transaction = pool.begin().await?;
 
     let result = sqlx::query!(
         "
@@ -221,11 +221,11 @@ DO UPDATE SET
 
     match result {
         Ok(result) => {
-            transaction.commit().await.unwrap();
+            transaction.commit().await?;
             Ok(result)
         }
         Err(e) => {
-            transaction.rollback().await.unwrap();
+            transaction.rollback().await?;
             Err(e)
         }
     }

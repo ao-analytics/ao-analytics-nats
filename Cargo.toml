@@ -1,17 +1,17 @@
 [package]
 name = "ao-analytics-nats"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = { version = "1.40.0", features = ["full"] }
+tokio = { version = "1.43.0", features = ["full"] }
 async-nats = "0.35.1"
-futures-util = "0.3.30"
-bytes = "1.7.1"
-serde_json = "1.0.128"
-serde = "1.0.210"
+futures-util = "0.3.31"
+bytes = "1.9.0"
+serde_json = "1.0.138"
+serde = "1.0.217"
 sqlx = { version = "0.7.4", features = [
     "postgres",
     "macros",
@@ -22,13 +22,13 @@ sqlx = { version = "0.7.4", features = [
 dotenv = "0.15.0"
 ao-analytics-models = { version = "*", git = "https://github.com/ao-analytics/ao-analytics-models.git" }
 config = { version = "*", git = "https://github.com/veqox/config-rs.git" }
-tracing = "0.1.40"
-tracing-subscriber = "0.3.18"
-tokio-util = "0.7.12"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
+tokio-util = "0.7.13"
 
 [dev-dependencies]
-tokio = { version = "1.40.0", features = ["rt-multi-thread", "time", "sync"] }
-futures = { version = "0.3.30", default-features = false, features = [
+tokio = { version = "1.43.0", features = ["rt-multi-thread", "time", "sync"] }
+futures = { version = "0.3.31", default-features = false, features = [
     "std",
     "async-await",
 ] }
