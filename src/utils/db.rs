@@ -1,4 +1,4 @@
-use ao_analytics_models::db;
+use crate::models::db;
 use sqlx::{
     postgres::PgQueryResult,
     types::chrono::{self, Utc},
@@ -8,7 +8,7 @@ use tracing::warn;
 
 pub async fn insert_market_orders(
     pool: &Pool<Postgres>,
-    market_orders: &[db::tables::MarketOrder],
+    market_orders: &[db::MarketOrder],
 ) -> Result<PgQueryResult, sqlx::Error> {
     let mut ids: Vec<i64> = Vec::new();
     let mut item_unique_names: Vec<String> = Vec::new();
@@ -131,7 +131,7 @@ ON CONFLICT DO NOTHING",
 
 pub async fn insert_market_histories(
     pool: &Pool<Postgres>,
-    market_histories: &[db::tables::MarketHistory],
+    market_histories: &[db::MarketHistory],
 ) -> Result<PgQueryResult, sqlx::Error> {
     let mut item_unique_names: Vec<String> = Vec::new();
     let mut location_ids: Vec<String> = Vec::new();
