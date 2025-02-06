@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nINSERT INTO market_order (\n    id,\n    item_unique_name,\n    location_id,\n    quality_level,\n    unit_price_silver,\n    amount,\n    auction_type,\n    expires_at)\nSELECT DISTINCT ON (id)\n    id,\n    item_unique_name,\n    location_id,\n    quality_level,\n    unit_price_silver,\n    amount,\n    auction_type,\n    expires_at\nFROM UNNEST(\n    $1::BIGINT[],\n    $2::VARCHAR[],\n    $3::SMALLINT[],\n    $4::SMALLINT[],\n    $5::BIGINT[],\n    $6::BIGINT[],\n    $7::VARCHAR[],\n    $8::TIMESTAMPTZ[])\n    AS market_order(\n        id,\n        item_unique_name,\n        location_id,\n        quality_level,\n        unit_price_silver,\n        amount,\n        auction_type,\n        expires_at)\nON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8Array",
+        "VarcharArray",
+        "Int2Array",
+        "Int2Array",
+        "Int8Array",
+        "Int8Array",
+        "VarcharArray",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "40780aab579c0bf6fbd36c8a1de7a6b2650ec494d3d2b416f3dd3f152722277f"
+}

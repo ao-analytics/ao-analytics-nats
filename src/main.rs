@@ -3,8 +3,7 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::{select, signal};
 
-use ao_analytics_models::json::nats;
-use models::db;
+use models::nats;
 
 use futures_util::StreamExt;
 use sqlx::postgres::PgPoolOptions;
@@ -91,7 +90,7 @@ async fn handle_market_orders_messages(
     token: tokio_util::sync::CancellationToken,
     config: utils::config::Config,
 ) {
-    let market_orders: Arc<RwLock<Vec<db::MarketOrder>>> = Arc::new(RwLock::new(Vec::new()));
+    let market_orders: Arc<RwLock<Vec<nats::MarketOrder>>> = Arc::new(RwLock::new(Vec::new()));
 
     let subscription = client
         .subscribe(config.nats_market_order_subject.to_string())
@@ -116,12 +115,12 @@ async fn handle_market_orders_messages(
                         _ = tokio::time::sleep(Duration::from_secs(60)) => {}
                 }
 
-                let mut market_orders = {
+                let mut market_orders: Vec<nats::MarketOrder> = {
                     let mut lock = global_market_orders.write().await;
                     if lock.is_empty() {
                         continue;
                     }
-                    lock.drain(..).collect::<Vec<db::MarketOrder>>()
+                    lock.drain(..).collect()
                 };
 
                 let start = chrono::Utc::now();
@@ -165,16 +164,6 @@ async fn handle_market_orders_messages(
             }
         };
 
-        let market_order = db::MarketOrder::from_nats(&market_order);
-
-        let market_order = match market_order {
-            Some(market_order) => market_order,
-            None => {
-                warn!("Failed to parse market order message");
-                continue;
-            }
-        };
-
         market_orders.write().await.push(market_order);
     }
 
@@ -187,7 +176,8 @@ async fn handle_market_histories_messages(
     token: tokio_util::sync::CancellationToken,
     config: utils::config::Config,
 ) {
-    let market_histories: Arc<RwLock<Vec<db::MarketHistory>>> = Arc::new(RwLock::new(Vec::new()));
+    let market_histories: Arc<RwLock<Vec<nats::MarketHistories>>> =
+        Arc::new(RwLock::new(Vec::new()));
 
     let subscription = client
         .subscribe(config.nats_market_history_subject.to_string())
@@ -219,13 +209,12 @@ async fn handle_market_histories_messages(
                     }
                 }
 
-                let mut market_histories = {
+                let mut market_histories: Vec<nats::MarketHistories> = {
                     let mut lock = global_market_histories.write().await;
                     if lock.is_empty() {
                         continue;
                     }
-                    let market_history: Vec<db::MarketHistory> = lock.drain(..).collect();
-                    market_history
+                    lock.drain(..).collect()
                 };
 
                 let start = chrono::Utc::now();
@@ -271,17 +260,7 @@ async fn handle_market_histories_messages(
             }
         };
 
-        let market_history = db::MarketHistory::from_nats(market_history);
-
-        let market_history = match market_history {
-            Some(market_history) => market_history,
-            None => {
-                warn!("Failed to parse market history message");
-                continue;
-            }
-        };
-
-        market_histories.write().await.extend(market_history);
+        market_histories.write().await.push(market_history);
     }
 
     _ = tokio::join!(inserter_join_handle);

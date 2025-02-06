@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nINSERT INTO market_history (\n    item_unique_name,\n    location_id,\n    quality_level,\n    silver_amount,\n    item_amount,\n    timescale,\n    timestamp,\n    updated_at)\nSELECT DISTINCT ON (item_unique_name, location_id, quality_level, timescale, timestamp)\n    item_unique_name,\n    location_id,\n    quality_level,\n    silver_amount,\n    item_amount,\n    timescale,\n    timestamp,\n    updated_at\nFROM UNNEST(\n    $1::VARCHAR[],\n    $2::SMALLINT[],\n    $3::SMALLINT[],\n    $4::BIGINT[],\n    $5::BIGINT[],\n    $6::SMALLINT[],\n    $7::TIMESTAMPTZ[],\n    $8::TIMESTAMPTZ[]) AS market_history(\n        item_unique_name,\n        location_id,\n        quality_level,\n        silver_amount,\n        item_amount,\n        timescale,\n        timestamp,\n        updated_at)\nON CONFLICT (item_unique_name, location_id, quality_level, timescale, timestamp)\nDO UPDATE SET\n    updated_at = EXCLUDED.updated_at,\n    silver_amount = EXCLUDED.silver_amount,\n    item_amount = EXCLUDED.item_amount\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "VarcharArray",
+        "Int2Array",
+        "Int2Array",
+        "Int8Array",
+        "Int8Array",
+        "Int2Array",
+        "TimestamptzArray",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "30c437293592fe03d9bea5420b49b9d881358f5f2f1033ff64836440df217585"
+}

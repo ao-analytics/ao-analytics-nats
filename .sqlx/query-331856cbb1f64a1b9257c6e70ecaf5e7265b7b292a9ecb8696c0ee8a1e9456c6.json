@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n    INSERT INTO item (\n        unique_name,\n        item_group_name,\n        enchantment_level)\n    SELECT DISTINCT ON (unique_name)\n        unique_name,\n        item_group_name,\n        enchantment_level\n    FROM UNNEST(\n        $1::TEXT[],\n        $2::TEXT[],\n        $3::SMALLINT[]) AS item (\n            unique_name,\n            item_group_name,\n            enchantment_level)\n    ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "TextArray",
+        "Int2Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "331856cbb1f64a1b9257c6e70ecaf5e7265b7b292a9ecb8696c0ee8a1e9456c6"
+}

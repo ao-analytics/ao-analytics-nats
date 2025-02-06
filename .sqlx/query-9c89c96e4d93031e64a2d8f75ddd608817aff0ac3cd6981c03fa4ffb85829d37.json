@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n    INSERT INTO item_group (name)\n    SELECT DISTINCT ON (name)\n        name\n    FROM UNNEST($1::TEXT[]) AS\n        item_group(name)\n    ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9c89c96e4d93031e64a2d8f75ddd608817aff0ac3cd6981c03fa4ffb85829d37"
+}

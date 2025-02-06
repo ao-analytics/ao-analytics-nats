@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n    INSERT INTO location (id)\n    SELECT DISTINCT ON (id)\n        id\n    FROM UNNEST($1::SMALLINT[]) AS\n        location(id)\n    ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int2Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e6f3aa21a8feb8e8cdcc5361a308f89056c8102e445f5a1176260fca30d90a98"
+}
